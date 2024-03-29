@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="UTF-8" />
+		<script src="https://apps.bdimg.com/libs/jquery/2.1.4/jquery.min.js"></script>
+		<script type="text/javascript" src="./echart4/echarts-geoCoordJson.js"></script>
+		<script type="text/javascript" src="./echart4/echarts.min.js"></script>
+		<script type="text/javascript" src="./echart4/echarts-gl.min.js"></script>
+		<style></style>
+		<title>地图</title>
+		<style>
+			body {
+				margin: 0;
+				background-color: #f0f0f0;
+				font-family: Arial, sans-serif;
+			}
+			#map {
+				width: 100%;
+				margin-bottom: 10px;
+				background-image: url('./echart4/ba5.jpg');
+				background-size: cover; /* This makes the background image cover the entire div */
+				background-repeat: no-repeat; /* This prevents the image from repeating */
+				background-position: center; /* This centers the background image */
+			}
+		</style>
+	</head>
+
+	<body>
+		<div class="easyui-layout" fit="true">
+			<div
+				region="center"
+				border="true"
+				data-options="region:'center',split:true"
+				style="padding: 0px; border: 0px; height: 100vh"
+				split="true"
+			>
+				<div id="map" style="height: 500px"></div>
+				<div id="pros" style="height: 600px">
+					<table style="height: 100%; width: 100%">
+						<tr>
+							<td style="width: 50%">
+								<div id="sage" style="height: 300px"></div>
+							</td>
+							<td style="width: 50%">
+								<div id="ssex" style="height: 300px"></div>
+							</td>
+						</tr>
+						<tr>
+							<td style="width: 50%">
+								<div id="spolitical" style="height: 300px"></div>
+							</td>
+							<td style="width: 50%">
+								<div id="snation" style="height: 300px"></div>
+							</td>
+						</tr>
+					</table>
+				</div>
+			</div>
+		</div>
+	</body>
+</html>
+
+<script>
+	var myChart = echarts.init(document.getElementById('map'))
+	var sageChart = echarts.init(document.getElementById('sage'))
+	var ssexChart = echarts.init(document.getElementById('ssex'))
+	var spoliticalChart = echarts.init(document.getElementById('spolitical'))
+	var snationChart = echarts.init(document.getElementById('snation'))
+	$(document).ready(function () {
+		//给时间控件加上样式
+
+		initMap()
+	})
+	var adcodemap = {}
+	function initMap() {
+		$.getJSON('https://geo.datav.aliyun.com/areas_v3/bound/100000_full.json', function (json) {
+			echarts.registerMap('china', json)
+
+			var year = $("input[name='year']").val()
+
+			//循环json数据，获取每个省的adcode
+			$.each(json.features, function (i, item) {
+				console.info(item.properties.centroid)
+				adcodemap[item.properties.name] = item.properties.adcode
+				if (item.properties.centroid) {
+					dataMap.push({
+						name: item.properties.name,
+						value: item.properties.centroid.concat(randomData()),
+					})
+				}
+			})
+			renderMap()
+		})
+	}
+
+	function randomData() {
+		return Math.round(Math.random() * 5000)
+	}
+
+	var dataMap = []
+	function renderMap() {
+		var option = {
+			animationDuration: 1000,
+			animationEasing: 'cubicOut',
+			animationDurationUpdate: 1000,
+		}
+
+		option.geo3D = {
+			/*   boxHeight: 10,*/
+			/*  boxWidth: 110,*/
+			map: 'china',
+			roam: true,
+			itemStyle: {
+				color: '#02A1E2', // #3385ff
+				opacity: 0.1,
+				borderWidth: 1, //0.6
+				borderColor: '#02A1E2', //#2f7bff
+			},
+			label: {
+				show: true,
+				textStyle: {
+					color: '#fcff62', //地图初始化区域字体颜色
+					fontSize: 7, //8
+					opacity: 1,
+					backgroundColor: 'rgba(0,23,11,0)',
+				},
+			},
+			emphasis: {
+				//当鼠标放上去  地区区域是否显示名称
+				label: {
+					show: true,
+					textStyle: {
+						color: '#fff', //#fff
+						fontSize: 3, //3
+						backgroundColor: 'rgba(0,23,11,0)', //renderer.setClearColor('',1.0);
+					},
+				},
+			},
+			shading: 'lambert',
+			light: {
+				//光照阴影
+				main: {
+					color: '#fff', //光照颜色
+					intensity: 1.2, //光照强度 1.2
+					//  shadowQuality: 'high', //阴影亮度
+					shadow: true, //是否显示阴影
+					alpha: 55,
+					beta: 10,
+				},
+				ambient: {
+					intensity: 0.3,
+				},
+			},
+		}
+
+		option.series = [
+			{
+				name: '人数',
+				type: 'bar3D',
+				coordinateSystem: 'geo3D',
+				barSize: 1.5, //柱子粗细 1.5
+				shading: 'lambert',
+				opacity: 1, //1
+				bevelSize: 0.1, //0.3
+				trigger: 'item',
+				transitionDuration: 0.2,
+
+				label: {
+					show: false,
+					formatter: function (params) {
+						return params.data['name'] + '人数：' + params.value[2]
+					},
+				},
+				data: dataMap,
+			},
+		]
+		myChart = echarts.init(document.getElementById('map'))
+		//渲染地图
+		myChart.setOption(option)
+		// myChart.getZr().on('click', function (params) {console.info(params)});
+		myChart.on('click', function (params) {
+			var cityName = params.name
+			var adcode = adcodemap[cityName]
+			console.log(adcode)
+			console.log(cityName)
+			$.getJSON(`https://geo.datav.aliyun.com/areas_v3/bound/${adcode}_full.json`, function (data) {
+				dataMap = []
+				//循环json数据，获取每个省的adcode
+				$.each(data.features, function (i, item) {
+					adcodemap[item.properties.name] = item.properties.adcode
+					if (item.properties.centroid) {
+						dataMap.push({
+							name: item.properties.name,
+							value: item.properties.centroid.concat(randomData()),
+						})
+					}
+				})
+				myChart.dispose()
+				myChart = echarts.init(document.getElementById('map'))
+				option.series[0].data = dataMap
+				option.geo3D['map'] = cityName
+				echarts.registerMap(cityName, data)
+				/*   var option = {
+                    series: [{
+                        name: cityName,
+                        type: 'map',
+                        mapType: cityName,
+                        data: dataMap // 这里可以替换为你的城市数据
+                    }]
+                }; */
+				console.info(option)
+				myChart.setOption(option)
+			})
+		})
+	}
+</script>
